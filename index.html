@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b0906">
+<meta name="referrer" content="no-referrer">
+<title>Ngage — the Director's posting desk</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20x='1'%20y='1'%20width='30'%20height='30'%20rx='7'%20fill='%230b0906'%20stroke='%23c39a56'%20stroke-opacity='.5'%20stroke-width='1.2'/%3E%3Cg%20transform='translate(4%204)'%20fill='none'%20stroke='%23c39a56'%20stroke-width='1.6'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M12%203%20C8.5%205.5%207%209%207.5%2012.5%20L12%2021%20L16.5%2012.5%20C17%209%2015.5%205.5%2012%203%20Z'/%3E%3Cpath%20d='M12%2020%20V13'/%3E%3Ccircle%20cx='12'%20cy='11'%20r='1.4'%20fill='%23c39a56'%20stroke='none'/%3E%3C/g%3E%3C/svg%3E" type="image/svg+xml">
+<!-- Same-origin ESM only (the luke gate-vendor pattern): the app that feeds a
+     signing ceremony loads NOTHING from a CDN. vendor/README.md has the recipe. -->
+<script type="importmap">
+{
+  "imports": {
+    "nostr-tools": "./vendor/nostr-tools.mjs",
+    "nostr-tools/pool": "./vendor/nostr-tools-pool.mjs",
+    "nostr-tools/nip46": "./vendor/nostr-tools-nip46.mjs"
+  }
+}
+</script>
+<style>
+  /* ─── The Nave letterpress-noir tokens (nave.pub design/tokens) ───── */
+  :root {
+    --ink: #0b0906; --ink2: #12100a; --panel: #171106;
+    --gold: #c39a56; --gold-bright: #e2c079;
+    --cream: #f4efe4; --dim: #7a6338; --soft: #9c927f; --faint: #2a2216;
+    --rule: color-mix(in srgb, var(--gold) 22%, transparent);
+    --ok: #8fae6a; --warn: #d9a648; --danger: #c0705a;
+    --alby: #ffdf6f; --alby-bright: #ffe98c; --alby-ink: #1c1400;
+    --mono: "Courier New", ui-monospace, monospace;
+    --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--ink); color: var(--cream);
+    font-family: var(--serif); line-height: 1.65; font-size: 16.5px;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(1200px 700px at 50% -8%, color-mix(in srgb, var(--gold) 8%, transparent), transparent 70%),
+      radial-gradient(900px 900px at 100% 100%, color-mix(in srgb, var(--gold) 5%, transparent), transparent 60%);
+    background-attachment: fixed;
+  }
+  a { color: var(--gold-bright); text-decoration: none; }
+  a:hover { color: var(--cream); }
+  main { max-width: 860px; margin: 0 auto; padding: 22px 24px 48px; }
+  .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 0.34em;
+    text-transform: uppercase; color: var(--dim); }
+  #alpha {
+    background: rgba(217, 166, 72, 0.09); color: var(--warn);
+    text-align: center; font-size: 13px; padding: 9px 16px; font-family: var(--mono);
+    letter-spacing: 0.03em; line-height: 1.5; border-bottom: 1px solid rgba(217, 166, 72, 0.22);
+  }
+  #alpha a { color: var(--warn); }
+
+  /* ── buttons: mono, letterspaced, gold on commit (nave.pub .btn) ───── */
+  button {
+    font-family: var(--mono); font-size: 12.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    padding: 10px 18px; border: 1px solid var(--rule); color: var(--soft);
+    background: transparent; border-radius: 2px; cursor: pointer; transition: all .18s;
+  }
+  button:hover { border-color: var(--gold); color: var(--gold-bright); }
+  button.primary { border-color: var(--gold); background: var(--gold); color: var(--ink); font-weight: 700; }
+  button.primary:hover { background: var(--gold-bright); border-color: var(--gold-bright); color: var(--ink); }
+  button.ghost { border-color: var(--faint); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  button.icon { width: 30px; height: 30px; padding: 0; display: inline-flex;
+    align-items: center; justify-content: center; letter-spacing: 0; }
+  button.icon:hover { color: var(--danger); border-color: var(--danger); }
+  input {
+    background: var(--ink); border: 1px solid var(--faint); color: var(--cream);
+    border-radius: 2px; padding: 9px 12px; font-family: var(--mono); font-size: 13px; min-width: 0;
+  }
+  input:focus { outline: none; border-color: color-mix(in srgb, var(--gold) 55%, var(--faint)); }
+
+  /* ── the Alby sign-in bar (fleet NIP-07 front door) ────────────────── */
+  .alby-bar {
+    width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 13px 18px; font-size: 14px; font-weight: 700; letter-spacing: 0.02em; text-transform: none;
+    background: var(--alby); border-color: var(--alby); color: var(--alby-ink); font-family: var(--serif);
+  }
+  .alby-bar:hover { background: var(--alby-bright); border-color: var(--alby-bright); color: var(--alby-ink); }
+  .alby-bar .alby-mark { width: 24px; height: 24px; flex: none; }
+  .alby-sub { text-align: center; color: var(--dim); font-size: 12px; margin: 10px 0 0; font-family: var(--mono); }
+
+  /* ── login card ────────────────────────────────────────────────────── */
+  #login { max-width: 560px; margin: 8vh auto 0; background: var(--panel);
+    border: 1px solid var(--faint); border-radius: 4px; padding: 32px;
+    box-shadow: 0 30px 70px -46px #000; }
+  #login .kicker { display: block; margin-bottom: 8px; }
+  #login h2 { margin: 0 0 8px; font-family: var(--serif); font-weight: 400;
+    font-style: italic; font-size: 25px; letter-spacing: 0.01em; }
+  #login p { color: var(--soft); margin: 0 0 22px; font-size: 15px; }
+  #login .row { display: flex; gap: 10px; margin: 18px 0 0; }
+  #login .row input { flex: 1; }
+  #login .alt { margin-top: 18px; color: var(--soft); font-size: 13.5px; }
+  #login .alt a { cursor: pointer; }
+  #login .err { color: var(--warn); margin-top: 14px; font-size: 12.5px; min-height: 1em; font-family: var(--mono); }
+  .sep { display: flex; align-items: center; gap: 12px; margin: 24px 0 0; color: var(--dim);
+    font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.22em; text-transform: uppercase; }
+  .sep::before, .sep::after { content: ""; flex: 1; border-top: 1px solid var(--faint); }
+  .phrase { background: var(--ink); border: 1px solid var(--faint); border-radius: 2px;
+    padding: 13px 15px; font-family: var(--mono); font-size: 13.5px; word-break: break-all;
+    margin: 16px 0 10px; user-select: all; }
+  #newkey .warn { color: var(--warn); font-size: 13px; margin: 0 0 12px; }
+
+  /* ── tabs / status ─────────────────────────────────────────────────── */
+  #tabs { display: none; gap: 4px; margin: 22px 0 4px; border-bottom: 1px solid var(--faint); }
+  .tab { background: none; border: none; border-bottom: 2px solid transparent; border-radius: 0;
+    color: var(--dim); padding: 9px 16px; font-size: 12px; }
+  .tab:hover { color: var(--cream); }
+  .tab.active { color: var(--cream); border-bottom-color: var(--gold); }
+  #status { color: var(--dim); font-size: 12.5px; min-height: 1.2em; margin: 10px 0 22px; font-family: var(--mono); }
+
+  /* ── the draft card: dossier around a client-true post preview ─────── */
+  .draft { background: var(--panel); border: 1px solid var(--faint); border-radius: 4px;
+    padding: 20px 22px; margin-bottom: 18px; transition: border-color .18s; }
+  .draft:hover { border-color: color-mix(in srgb, var(--gold) 45%, var(--faint)); }
+  .draft .head { display: flex; align-items: baseline; gap: 12px; justify-content: space-between; flex-wrap: wrap; margin-bottom: 14px; }
+  .draft .scope { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; color: var(--gold); }
+  .badge { font-size: 10px; padding: 3px 10px; border-radius: 999px; font-family: var(--mono);
+    letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid var(--faint); color: var(--dim); white-space: nowrap; }
+  .badge.ready { border-color: var(--ok); color: var(--ok); }
+  .badge.withdrawn { border-color: var(--warn); color: var(--warn); }
+  .badge.malformed { border-color: var(--danger); color: var(--danger); }
+  .badge.posted { border-color: var(--ok); color: var(--ok); }
+  .badge.passed { border-color: var(--faint); color: var(--dim); }
+
+  /* the post as a nostr client will show it */
+  .post { background: var(--ink2); border: 1px solid var(--faint); border-radius: 8px; padding: 16px 18px; }
+  .post .who { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .post .ava { width: 38px; height: 38px; border-radius: 50%; flex: none;
+    border: 1.5px solid color-mix(in srgb, var(--gold) 60%, transparent);
+    background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--gold) 22%, transparent), transparent 70%);
+    color: var(--gold); display: grid; place-items: center; }
+  .post .ava svg { width: 20px; height: 20px; }
+  .post .who .name { font-weight: 700; font-size: 15px; font-family: var(--serif); }
+  .post .who .sub { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .post .body { font-size: 16px; line-height: 1.55; white-space: pre-wrap; word-wrap: break-word; }
+  .post .body .htag { color: var(--gold-bright); }
+  .post img.media { display: block; max-width: 100%; border-radius: 6px; margin-top: 12px;
+    border: 1px solid var(--faint); }
+  .post .alt { font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin-top: 6px; }
+
+  .why { font-style: italic; color: color-mix(in srgb, var(--cream) 72%, var(--dim));
+    font-size: 14.5px; margin: 14px 2px 2px; }
+  .why b { color: var(--cream); font-weight: 600; font-style: normal; }
+  .prov { font-family: var(--mono); font-size: 11px; color: var(--dim); margin: 8px 2px 0; letter-spacing: 0.04em; }
+  .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+  .actions .msg { font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+  .actions .msg.ok { color: var(--ok); }
+  .actions .msg.err { color: var(--warn); }
+  .inert { opacity: 0.65; }
+
+  .empty { color: var(--soft); text-align: center; margin: 9vh auto; max-width: 46ch;
+    font-style: italic; font-size: 16px; }
+  .empty .kicker { display: block; font-style: normal; margin-bottom: 10px; }
+  .empty code { font-family: var(--mono); color: var(--gold); font-size: 13px; font-style: normal; }
+
+  /* history */
+  details.history { margin-top: 34px; border-top: 1px solid var(--faint); padding-top: 14px; }
+  details.history summary { cursor: pointer; font-family: var(--mono); font-size: 11px;
+    letter-spacing: 0.22em; text-transform: uppercase; color: var(--dim); }
+  details.history summary:hover { color: var(--gold); }
+  .hrow { display: flex; gap: 12px; align-items: baseline; font-size: 13px; padding: 9px 2px;
+    border-bottom: 1px dashed var(--faint); color: var(--soft); flex-wrap: wrap; }
+  .hrow .when { font-family: var(--mono); font-size: 11px; color: var(--dim); width: 122px; flex: none; }
+  .hrow .hname { font-family: var(--mono); font-size: 12px; color: var(--cream); }
+  .hrow .note { font-family: var(--mono); font-size: 11px; word-break: break-all; }
+
+  /* settings */
+  .panel { background: var(--panel); border: 1px solid var(--faint); border-radius: 4px;
+    padding: 22px 24px; margin-bottom: 18px; }
+  .panel .kicker { display: block; margin-bottom: 6px; }
+  .panel p.note { color: var(--soft); font-size: 14px; margin: 0 0 16px; }
+  .panel .row { display: flex; gap: 10px; margin-bottom: 10px; }
+  .panel .row input { flex: 1; }
+  .lrow { display: flex; gap: 12px; align-items: center; padding: 8px 2px;
+    border-bottom: 1px dashed var(--faint); font-family: var(--mono); font-size: 12px; }
+  .lrow .grow { flex: 1; word-break: break-all; }
+  .lrow .pname { color: var(--gold-bright); font-family: var(--serif); font-size: 14px; }
+  .jsonerr { color: var(--warn); font-size: 12px; min-height: 1.1em; margin: 4px 0; font-family: var(--mono); }
+</style>
+</head>
+<body>
+<div id="alpha">alpha — the sovereign posting desk rides on draft NIP-DA
+  (<a href="https://github.com/nostr-protocol/nips/pull/2411">review pending</a>); kind numbers may change.</div>
+<header id="titlebar"></header>
+<main>
+  <section id="login">
+    <span class="kicker">The Director's posting desk</span>
+    <h2>Nothing posts but in your hand.</h2>
+    <p>Your agent drafts posts <em>for</em> you and grants each one to your key —
+       encrypted end to end. Here you review them exactly as they will appear,
+       and the ones you approve are signed by <em>your</em> signer, as <em>your</em>
+       events. The key never touches a server; the agent never signs as you.</p>
+    <button class="primary alby-bar" id="nip07"><span class="alby-mark"><svg viewBox="0 0 28 28" fill="none" aria-hidden="true">
+      <ellipse cx="9.5" cy="9" rx="3.6" ry="5.4" fill="#1c1400" fill-opacity=".22" transform="rotate(-22 9.5 9)"/>
+      <ellipse cx="18.5" cy="9" rx="3.6" ry="5.4" fill="#1c1400" fill-opacity=".22" transform="rotate(22 18.5 9)"/>
+      <ellipse cx="14" cy="16" rx="6" ry="7.4" fill="#1c1400"/>
+      <path d="M8.6 14 H19.4 M8.6 17.6 H19.4 M10.4 21 H17.6" stroke="#ffdf6f" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M12 8.2 L10.4 4.4 M16 8.2 L17.6 4.4" stroke="#1c1400" stroke-width="1.3" stroke-linecap="round"/>
+      <circle cx="10.2" cy="3.8" r="1.05" fill="#1c1400"/><circle cx="17.8" cy="3.8" r="1.05" fill="#1c1400"/>
+    </svg></span> Sign in with Alby</button>
+    <div class="alby-sub">works with any NIP-07 signer with NIP-44 — Alby · nos2x</div>
+    <div class="sep">or</div>
+    <div class="row">
+      <input id="bunker-uri" placeholder="bunker://… from your remote signer (iPhone / no extension)"
+        autocomplete="off" spellcheck="false">
+      <button class="primary" id="bunker-go">Connect</button>
+    </div>
+    <div class="alby-sub">NIP-46 remote signing — pair once with your bunker; the key never enters this browser</div>
+    <div class="alt" id="bunker-auth" style="display:none"></div>
+    <div class="alt"><a id="advanced-toggle">Advanced: use a local key in this tab (demo / recovery)</a></div>
+    <div id="advanced" style="display:none">
+      <div class="row" style="margin-top:10px">
+        <input id="nsec" placeholder="paste nsec1… / hex (demo only)" autocomplete="off">
+        <button id="go">Open</button>
+      </div>
+      <div class="alt">No key? <a id="gen">Generate one</a> — write it down; it is the only way back in.</div>
+      <div id="newkey" style="display:none">
+        <div class="phrase" id="newkey-nsec"></div>
+        <p class="warn">Write it down — it IS the account. No reset, no server copy.</p>
+        <div class="row">
+          <button id="newkey-copy">Copy</button>
+          <button class="primary" id="newkey-continue" style="flex:1">Continue</button>
+        </div>
+      </div>
+    </div>
+    <div class="err" id="err"></div>
+  </section>
+  <nav id="tabs">
+    <button class="tab active" data-tab="drafts">Drafts</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </nav>
+  <div id="status"></div>
+  <section id="drafts" style="display:none"></section>
+  <section id="settings" style="display:none"></section>
+</main>
+<script type="module" src="main.mjs"></script>
+
+<!-- The common Nave footer — identical on every app. -->
+<style>
+  .nave-footer { background:#0b0906; border-top:1px solid #2a2317; color:#7a6f5c;
+    font-family:ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; padding:38px 24px; margin-top:56px; }
+  .nave-footer .nf-wrap { max-width:1040px; margin:0 auto; display:flex; flex-direction:column;
+    align-items:center; text-align:center; gap:18px; }
+  .nave-footer a { text-decoration:none; }
+  .nf-brand { display:inline-flex; align-items:center; gap:10px; font-size:13px;
+    letter-spacing:.16em; text-transform:uppercase; color:#c39a56; }
+  .nf-brand:hover { color:#e2c079; }
+  .nf-brand svg { width:22px; height:22px; flex:none; }
+  .nf-apps { display:flex; flex-wrap:wrap; gap:8px 16px; justify-content:center;
+    font-size:12px; letter-spacing:.08em; }
+  .nf-apps a { color:#9c927f; }
+  .nf-apps a:hover { color:#e2c079; }
+  .nf-apps .here { color:#f4efe4; border-bottom:1px solid #c39a56; }
+  .nf-meta { display:flex; flex-wrap:wrap; gap:8px 18px; justify-content:center;
+    align-items:center; font-size:12px; }
+  .nf-meta a { color:#c39a56; }
+  .nf-meta a:hover { color:#e2c079; }
+  .nf-npub { font-size:11px; color:#6f6553; word-break:break-all; }
+  .nf-whisper { font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-style:italic; font-size:13px; color:#6f6553; }
+</style>
+<footer class="nave-footer">
+  <div class="nf-wrap">
+    <a class="nf-brand" href="https://nave.pub">
+      <svg viewBox="0 0 100 100" fill="none" aria-hidden="true">
+        <circle cx="50" cy="50" r="46" stroke="#c39a56" stroke-width="2" opacity="0.5"/>
+        <path d="M50 6 L57 43 L94 50 L57 57 L50 94 L43 57 L6 50 L43 43 Z" fill="#c39a56" fill-opacity="0.16" stroke="#c39a56" stroke-width="2"/>
+        <circle cx="50" cy="50" r="4" fill="#e2c079"/>
+      </svg>
+      A nave.pub project
+    </a>
+    <nav class="nf-apps">
+      <a href="https://noir.nave.pub">Noir</a>
+      <a href="https://nontact.nave.pub">Nontact</a>
+      <a href="https://nvelope.nave.pub">Nvelope</a>
+      <a href="https://nherit.nave.pub">Nherit</a>
+      <a href="https://ntrigue.nave.pub">Ntrigue</a>
+      <a href="https://notegate.nave.pub">Notegate</a>
+      <a href="https://nvoy.nave.pub">Nvoy</a>
+      <a class="here" href="https://ngage.nave.pub">Ngage</a>
+      <a href="https://nscope.nave.pub">Nscope</a>
+    </nav>
+    <div class="nf-meta">
+      <a href="mailto:help@nave.pub">help@nave.pub</a>
+      <span class="nf-npub">npub1gqg2csuzqmwpqqvts99786spefkf90xz96t3n6zp6fqnk2r74pxs4tcgrg</span>
+    </div>
+    <div class="nf-whisper">Identity = Freedom · your data answers to your keys, and no one else's.</div>
+  </div>
+</footer>
+</body>
+</html>
