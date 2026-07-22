@@ -119,43 +119,55 @@ export function normalizeSteering(s) {
   }
 }
 
-/** The starting steering document — derived from the Director's own published
- *  writing (nave.pub/library/articles), so the panel opens on his actual voice
- *  instead of a blank form. This is only the STARTING point: nothing is granted
- *  to anyone until he reviews and publishes, and a live steering grant always
- *  wins over these defaults. */
+/** The starting steering document, derived from TWELVE ESSAYS THE DIRECTOR WROTE
+ *  BY HAND (jamesafairweather.com/writing, 2015-2025) — 4,054 words of prose,
+ *  measured. Every rule here is evidence, not inference.
+ *
+ *  NOT a voice source: the essays in nave.pub/library/articles are AI-assisted.
+ *  Learning voice from those is a feedback loop (an assistant learning its own
+ *  voice back); an earlier version of this constant made exactly that mistake
+ *  and got all four of its central claims backwards.
+ *
+ *  Only a STARTING point: nothing is granted until he reviews and publishes, and
+ *  a live steering grant always wins over these defaults. */
 export const DEFAULT_STEERING = {
   voice:
-    'Structural and argumentative, never announcemental. Open on the claim or the tension, ' +
-    'not the news. Be concrete — name the actual mechanism (the kind number, the rotation, ' +
-    'the ~300 lines) instead of gesturing at it. State limits out loud: honesty about what ' +
-    "something can't do is part of the argument, not a hedge to smooth away. A contrarian " +
-    "framing earns its keep when it's true ('the portfolio grew upward, not sideways'). " +
-    "No hype, no launch voice, no 'excited to share'.",
+    'Back-load and assert — never front-load and qualify. Open on a THING, never a claim: a ' +
+    'concrete object, a scene, a fact, and say plainly that you are fond of it. Build by ' +
+    'extension, not argument — push the one object through domain after domain and let the ' +
+    'reader make the jump. Reach for engineering and physics words as feeling language (bias, ' +
+    'activation function, shear, out of phase) and INHABIT the mechanism; never write "the ' +
+    'mechanism here is." Turn to the reader at the end, usually as an instruction with a promise ' +
+    'attached. Close short and warm — on a person, a feeling, or an instruction. Em-dashes are ' +
+    'the breath unit, including as a serial delimiter replacing commas. Alternate a long ' +
+    'clause-chained sentence with a four-word one; single-sentence paragraphs are the rhythm ' +
+    'section; start sentences with And or But. Overstate warmly.',
   leanInto: [
-    'protocols over platforms — building upward on one primitive',
-    'revocation as key rotation, and what it honestly cannot undo',
-    'scoped, delegated data; agents on a leash',
-    'a per-person agent, not a seat in a shared one',
-    'self-hosting war stories with the false starts left in',
-    'games as proving grounds for protocol',
-    "what's still open — the unsolved part",
+    'craft, and the discipline of building things — companies, software, selves',
+    'engineering and physics as a way of talking about a life',
+    'the people who taught him something, thanked by name',
+    'sovereignty: scoped grants, agents that act without owning you',
+    'gratitude, said plainly and without embarrassment',
   ],
   avoid: [
-    "launch-announcement voice ('shipped', 'excited to share')",
-    'claiming completeness, or smoothing a real limitation away',
-    'platform / product marketing register',
-    "vague gestures at 'privacy' or 'AI' with no mechanism named",
+    'opening on a claim, a tension, or a thesis',
+    'argument and counterargument — no "on the other hand"',
+    'naming the mechanism instead of inhabiting it',
+    'hedging of any kind — no "the tradeoff is", "worth noting", "to be clear", stating limits',
+    'summary or recap closings — the piece ends on a person, not a restatement',
+    'bullets, numbered lists, section headers, bold, italics',
+    'semicolons, and the spaced hyphen (that is his email voice, not this one)',
+    'cynicism, detachment, or an adversary to punch at',
   ],
   cadence:
-    'Fewer, deeper. One developed thought beats three thin ones — do not ration when the ' +
-    'material is rich, and do not pad when it is not.',
+    'Let the object set the length — a short piece that lands beats a long one that explains. ' +
+    'Fewer, deeper. One developed thought is worth more than three thin ones.',
   graphics:
-    'Pick the card whose concept matches the argument (grants, revocation, nactor, nave). ' +
-    'Go bare rather than force a mismatched card.',
+    'Pick the card whose concept matches the piece. Go bare rather than force a mismatched card.',
   houseRules:
-    'Reach for the idea inside the work, not the fact that work happened. One nave.pub link ' +
-    'and 1–3 lowercase topical hashtags; never #nostr.',
+    'Always reference nave.pub, and if a specific app is named — Nontact, Nvoy, Nact, Nvelope, ' +
+    'Notegate, Ntrigue, Nherit, Nscope, Noir, Ngage, warm.contact — carry that app link too. ' +
+    '1-3 lowercase topical hashtags; never #nostr.',
 }
 
 /** Assemble the on-wire payload. Empty fields are OMITTED — the scribe tolerates
