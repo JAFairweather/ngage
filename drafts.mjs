@@ -97,7 +97,10 @@ export function readDraftPayload(data) {
   const str = (v) => typeof v === 'string' ? v : undefined
   const text = str(data.text)
   let image
-  if (data.image !== undefined) {
+  // `null` means "no image", exactly like an absent key — the scribe writes
+  // `image: p.image || null` and a bare personal draft carries no card. Only a
+  // PRESENT image object whose url is unusable is a lying shape.
+  if (data.image !== undefined && data.image !== null) {
     const url = str(data.image?.url)
     let okUrl = false
     try { okUrl = !!url && /^https?:$/.test(new URL(url).protocol) } catch { okUrl = false }
