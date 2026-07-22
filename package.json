@@ -1,0 +1,14 @@
+{
+  "name": "ngage",
+  "private": true,
+  "description": "The Director's sovereign posting desk — review agent-drafted posts and publish them in your own hand.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "serve": "node serve.mjs",
+    "vendor": "esbuild node_modules/nostr-tools/lib/esm/index.js --bundle --format=esm --minify --outfile=vendor/nostr-tools.mjs && esbuild node_modules/nostr-tools/lib/esm/pool.js --bundle --format=esm --minify --outfile=vendor/nostr-tools-pool.mjs && esbuild node_modules/nostr-tools/lib/esm/nip46.js --bundle --format=esm --minify --outfile=vendor/nostr-tools-nip46.mjs"
+  },
+  "devDependencies": {
+    "nostr-tools": "2.23.12"
+  }
+}
