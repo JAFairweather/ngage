@@ -233,3 +233,16 @@ test('malformed payloads are inert, never signable', async () => {
   assert.equal(readDraftPayload(null).ok, false)
   assert.equal(readDraftPayload(['array']).ok, false)
 })
+
+// Regression: the scribe writes `image: p.image || null`, so every bare
+// personal draft carries an explicit null. That is "no image", not a lying
+// shape — treating it as malformed made every card-less draft inert.
+test('readDraftPayload: an explicit null image is absent, not malformed', () => {
+  const r = readDraftPayload({ text: 'a bare personal draft', image: null, proposedBy: 'luke' })
+  assert.equal(r.ok, true, 'null image must not be malformed')
+  assert.equal(r.draft.image, undefined)
+  assert.equal(r.draft.text, 'a bare personal draft')
+  // a present-but-broken image object is still malformed
+  assert.equal(readDraftPayload({ text: 'x', image: { url: 'javascript:alert(1)' } }).ok, false)
+  assert.equal(readDraftPayload({ text: 'x', image: {} }).ok, false)
+})
