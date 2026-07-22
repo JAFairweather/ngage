@@ -119,6 +119,45 @@ export function normalizeSteering(s) {
   }
 }
 
+/** The starting steering document — derived from the Director's own published
+ *  writing (nave.pub/library/articles), so the panel opens on his actual voice
+ *  instead of a blank form. This is only the STARTING point: nothing is granted
+ *  to anyone until he reviews and publishes, and a live steering grant always
+ *  wins over these defaults. */
+export const DEFAULT_STEERING = {
+  voice:
+    'Structural and argumentative, never announcemental. Open on the claim or the tension, ' +
+    'not the news. Be concrete — name the actual mechanism (the kind number, the rotation, ' +
+    'the ~300 lines) instead of gesturing at it. State limits out loud: honesty about what ' +
+    "something can't do is part of the argument, not a hedge to smooth away. A contrarian " +
+    "framing earns its keep when it's true ('the portfolio grew upward, not sideways'). " +
+    "No hype, no launch voice, no 'excited to share'.",
+  leanInto: [
+    'protocols over platforms — building upward on one primitive',
+    'revocation as key rotation, and what it honestly cannot undo',
+    'scoped, delegated data; agents on a leash',
+    'a per-person agent, not a seat in a shared one',
+    'self-hosting war stories with the false starts left in',
+    'games as proving grounds for protocol',
+    "what's still open — the unsolved part",
+  ],
+  avoid: [
+    "launch-announcement voice ('shipped', 'excited to share')",
+    'claiming completeness, or smoothing a real limitation away',
+    'platform / product marketing register',
+    "vague gestures at 'privacy' or 'AI' with no mechanism named",
+  ],
+  cadence:
+    'Fewer, deeper. One developed thought beats three thin ones — do not ration when the ' +
+    'material is rich, and do not pad when it is not.',
+  graphics:
+    'Pick the card whose concept matches the argument (grants, revocation, nactor, nave). ' +
+    'Go bare rather than force a mismatched card.',
+  houseRules:
+    'Reach for the idea inside the work, not the fact that work happened. One nave.pub link ' +
+    'and 1–3 lowercase topical hashtags; never #nostr.',
+}
+
 /** Assemble the on-wire payload. Empty fields are OMITTED — the scribe tolerates
  *  absence, so a lean steering document stays lean on the relay. */
 export function buildSteerPayload(steering, updatedAt = now()) {

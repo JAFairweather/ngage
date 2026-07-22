@@ -15,7 +15,7 @@ import { localSigner } from '../lib/nave-connect.mjs'
 import {
   publishScopeWithSigner, grantWithSigner, publishSteering, saveAndPublishSteering,
   buildSteerPayload, normalizeSteering, isSteeringEmpty, newScopeId,
-  loadSteering, saveSteering, STEER_SCOPE_NAME,
+  loadSteering, saveSteering, STEER_SCOPE_NAME, DEFAULT_STEERING,
 } from '../steering.mjs'
 
 // -- the relay stub: NIP-01 storage + filters + addressable replacement ------
@@ -175,4 +175,18 @@ test('saveAndPublishSteering mints then reuses scopeId, bumping generation each 
   assert.equal(grants.length, 1)
   assert.equal(grants[0].generation, 2)
   assert.equal((await fetchScope(relay, grants[0])).data.voice, 'v2')
+})
+
+// The seeded defaults: the panel opens on the Director's own voice rather than a
+// blank form, but they are only a STARTING point — nothing is granted until he
+// publishes, and a live steering document always wins over them.
+test('DEFAULT_STEERING is a publishable starting document', () => {
+  assert.equal(isSteeringEmpty(DEFAULT_STEERING), false, 'defaults must carry real guidance')
+  const p = buildSteerPayload(DEFAULT_STEERING, 1700000000)
+  for (const f of ['voice', 'leanInto', 'avoid', 'cadence', 'graphics', 'houseRules'])
+    assert.ok(p[f], `payload should carry ${f}`)
+  assert.equal(p.kind, 'steer:draft')
+  assert.ok(Array.isArray(p.leanInto) && p.leanInto.length >= 3)
+  // normalizing the defaults is a no-op — they are already canonical shape
+  assert.deepEqual(normalizeSteering(DEFAULT_STEERING), normalizeSteering(normalizeSteering(DEFAULT_STEERING)))
 })

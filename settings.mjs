@@ -11,7 +11,7 @@
 import { nip19 } from 'nostr-tools'
 import { DEFAULT_RELAYS, saveConfig, resetConfig } from './config.mjs'
 import { $, esc, short, state, agentName, parsePub, setRelays, load } from './main.mjs'
-import { loadSteering, saveAndPublishSteering, isSteeringEmpty } from './steering.mjs'
+import { loadSteering, saveAndPublishSteering, isSteeringEmpty, DEFAULT_STEERING } from './steering.mjs'
 
 export function renderSettings() {
   const el = $('settings')
@@ -135,7 +135,11 @@ export function renderSteering() {
   const host = $('steering-panel')
   if (!host) return
   const live = loadSteering()
-  if (!steerForm) steerForm = { ...live.steering }
+  // Nothing steering the scribe yet → open on the derived defaults (the
+  // Director's own voice, distilled from his published writing) so this is a
+  // review-and-approve, not a blank page. A live steering grant always wins,
+  // and nothing reaches the scribe until he presses Publish.
+  if (!steerForm) steerForm = isSteeringEmpty(live.steering) ? { ...DEFAULT_STEERING } : { ...live.steering }
   const agents = state.config.agents
   const gen = live.generation
 
