@@ -198,6 +198,42 @@ const NGAGE_SEAL = `<svg viewBox="0 0 32 32" aria-hidden="true">
 </svg>`
 renderTitlebar('#titlebar', { appName: 'Ngage', tagline: 'the posting desk', sealSvg: NGAGE_SEAL })
 
+// --- stale-tab guard --------------------------------------------------------
+// The real cache class isn't the headers (every module is served no-cache) —
+// it's a tab left OPEN across a deploy: its in-memory modules are the old code,
+// and an action (e.g. Publish steering) silently runs the stale build. A hard
+// refresh fixes it, but you have to KNOW to. This watches the served bundle's
+// ETag and, when a newer one deploys, shows a one-click reload banner — so a
+// stale tab announces itself instead of quietly doing the wrong thing.
+;(function watchForUpdate() {
+  const probe = () => fetch('./main.mjs', { method: 'HEAD', cache: 'no-store' })
+    .then(r => r.headers.get('etag') || r.headers.get('last-modified')).catch(() => null)
+  probe().then(loaded => {
+    if (!loaded) return
+    let shown = false
+    const check = async () => {
+      if (shown || document.hidden) return
+      const now = await probe()
+      if (now && now !== loaded) {
+        shown = true
+        const bar = document.createElement('div')
+        bar.setAttribute('role', 'status')
+        bar.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:9999;display:flex;gap:12px;align-items:center;justify-content:center;padding:10px 14px;background:var(--accent,#c39a56);color:#12100a;font:600 13px/1.3 system-ui,sans-serif'
+        bar.textContent = 'A newer Ngage has been deployed — reload so your actions use the latest build. '
+        const btn = document.createElement('button')
+        btn.textContent = 'Reload now'
+        btn.style.cssText = 'padding:5px 12px;border:1px solid #12100a;border-radius:6px;background:#12100a;color:var(--accent,#c39a56);cursor:pointer;font:inherit'
+        btn.onclick = () => location.reload()
+        bar.appendChild(btn)
+        document.body.appendChild(bar)
+      }
+    }
+    document.addEventListener('visibilitychange', check)
+    window.addEventListener('focus', check)
+    setInterval(check, 5 * 60 * 1000)   // also poll, for a tab that never blurs
+  })
+})()
+
 // Boot order: any tab-session sign-in first (nave-connect parses all three
 // kinds — a bare-hex remember reads as `local`), else the login screen.
 const saved = sessionStorage.getItem('ngage-login')
