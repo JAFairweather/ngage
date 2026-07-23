@@ -25,6 +25,7 @@
 
 import { finalizeEvent, generateSecretKey, getEventHash, nip44 } from 'nostr-tools'
 import { KIND_DATA_SET, KIND_GRANT, newScopeKey } from './lib/nipxx.mjs'
+import { recordSteeringInIndex } from './nvoy-index.mjs'
 
 // ---- wire constants --------------------------------------------------------
 // Per the shared contract: BOTH the scope's grant name and the payload's kind
@@ -256,6 +257,16 @@ export async function saveAndPublishSteering(relay, signer, grantees, steering, 
   const generation = (prev.generation ?? 0) + 1
   const scopeKey = newScopeKey()
   const result = await publishSteering(relay, signer, grantees, { scopeId, generation, scopeKey, steering })
+  // Record it in the Director's Grant Index so NVOY IS THE SOURCE OF TRUTH for
+  // all grants (his standing rule): the steering grant now shows on the
+  // grantee's Nvoy card and in the Ledger, not just on the relays. Best-effort —
+  // a publish already succeeded above, so an index hiccup never fails the save;
+  // it just means the grant isn't mirrored to the console until the next save.
+  let indexed = null
+  try {
+    indexed = await recordSteeringInIndex(relay, signer,
+      { scopeId, scopeName: STEER_SCOPE_NAME, generation, scopeKey, grantees })
+  } catch (e) { indexed = { error: e?.message || String(e) } }
   const record = saveSteering({ scopeId, generation, steering }, storage)
-  return { record, result }
+  return { record, result, indexed }
 }
