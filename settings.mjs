@@ -213,13 +213,18 @@ export function renderSteering() {
     msg.textContent = 'sealing to your agents and publishing to the relays…'
     msg.className = 'steer-msg'
     try {
-      const { record, result } = await saveAndPublishSteering(
+      const { record, result, indexed } = await saveAndPublishSteering(
         state.relay, state.signer, state.config.agents, steerForm)
       const acks = result.scope.acks ?? 0
       renderSteering()   // reflect the new generation, then message the fresh node
       const m = $('steer-msg')
       if (m) {
-        m.textContent = `published — generation ${record.generation}, sealed to ${result.grants.length} agent${result.grants.length === 1 ? '' : 's'} (${acks} relay${acks === 1 ? '' : 's'})`
+        // Confirm it reached Nvoy — the source of truth for all grants — so a
+        // successful save is verifiably visible in the console, not just relays.
+        const inNvoy = indexed && !indexed.error
+          ? ' · recorded in Nvoy'
+          : ' · ⚠ not recorded in Nvoy (retry to mirror it)'
+        m.textContent = `published — generation ${record.generation}, sealed to ${result.grants.length} agent${result.grants.length === 1 ? '' : 's'} (${acks} relay${acks === 1 ? '' : 's'})${inNvoy}`
         m.className = 'steer-msg ok'
       }
     } catch (err) {
