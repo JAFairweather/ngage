@@ -57,10 +57,28 @@ ${esc(ev.content)}
 tags: ${esc(JSON.stringify(ev.tags))}</pre></details>`
 }
 
+// The pen frame (#11): the identity that CRYPTOGRAPHICALLY drafted this wraps
+// the card — avatar + name + how the proof holds. A pen-direct draft is proven
+// by the seal (the author IS the pen); a courier delivery is proven by the
+// embedded attestation the desk itself just verified (drafts.mjs pennedDraft).
+const penFrame = (penned) => {
+  if (!penned) return ''
+  const pk = penned.by
+  const pic = state.profiles?.get(pk)?.picture
+  return `<div class="penhead">
+    ${pic ? `<img class="penava" src="${esc(pic)}" alt="" referrerpolicy="no-referrer">` : `<span class="penava penava-fallback">✒</span>`}
+    <span class="penname">✒ penned by <b>${esc(agentName(pk))}</b> <span class="penpk">(${esc(short(pk))})</span></span>
+    <span class="penproof">${penned.direct
+      ? 'sealed by its key — verified'
+      : 'signature over these exact words — verified by this desk'}</span>
+  </div>`
+}
+
 function pendingCard(d, i) {
-  const { grant: g, draft } = d
+  const { grant: g, draft, penned } = d
   const extraTags = (draft.hashtags ?? []).filter(t => !extractHashtags(composeContent(draft.text)).includes(t))
-  return `<div class="draft" id="d-${i}">
+  return `<div class="draft${penned ? ' penned' : ''}" id="d-${i}">
+    ${penFrame(penned)}
     <div class="head"><span class="scope">${esc(g.scopeName)}</span>
       <span class="badge ready">awaiting your hand</span></div>
     ${postPreview(draft)}
@@ -78,7 +96,7 @@ function pendingCard(d, i) {
 
 const inertCard = (d, i, badge, note) => `<div class="draft inert" id="d-${i}">
     <div class="head"><span class="scope">${esc(d.grant.scopeName)}</span>
-      <span class="badge ${badge}">${badge === 'withdrawn' ? 'withdrawn by agent' : 'malformed — inert'}</span></div>
+      <span class="badge ${badge}">${badge === 'withdrawn' ? 'withdrawn by agent' : badge === 'unpenned' ? '✒ unpenned — refused' : 'malformed — inert'}</span></div>
     <p class="why">${note}</p>
     <p class="prov">${provenance(d.grant)}</p>
     <div class="actions"><button class="ghost" data-pass="${i}">Clear</button></div>
@@ -111,6 +129,8 @@ export function renderDrafts() {
     if (d.status === 'ready') cards.push(pendingCard(d, i))
     else if (d.status === 'withdrawn') cards.push(inertCard(d, i, 'withdrawn',
       'The agent rotated or removed this draft scope after granting it — the text is no longer readable with your key. Nothing to sign.'))
+    else if (d.status === 'unpenned') cards.push(inertCard(d, i, 'unpenned',
+      `The pen rule: a coordinator may only courier what a pen signed — and ${esc(d.why || 'this delivery carries no verifiable pen signature')}. It stays inert; nothing unpenned ever reaches your signer.`))
     else cards.push(inertCard(d, i, 'malformed',
       'This grant unwrapped and decrypted, but the payload is not a well-formed draft. It stays inert — nothing malformed ever reaches your signer.'))
   })

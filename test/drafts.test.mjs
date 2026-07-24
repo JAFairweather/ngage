@@ -246,3 +246,37 @@ test('readDraftPayload: an explicit null image is absent, not malformed', () => 
   assert.equal(readDraftPayload({ text: 'x', image: { url: 'javascript:alert(1)' } }).ok, false)
   assert.equal(readDraftPayload({ text: 'x', image: {} }).ok, false)
 })
+
+// The pen rule (#11; nact#44): a PEN proves itself by the seal; a COORDINATOR
+// is a courier whose payload must carry the draft SIGNED by an allowlisted
+// pen — and the desk renders from those attested bytes, not the courier's.
+test('the pen rule: coordinators may only courier pen-signed words', async () => {
+  const relay = new MemRelay()
+  const pen = mk()             // jaf-quill — the pen (key off-box in prod)
+  const courier = mk()         // the Nactor — a coordinator
+  const stranger = mk()
+  const director = mk()
+  const cfg = { agents: [pen.pub], deliverers: [courier.pub] }
+  const core = { text: 'penned words ride', hashtags: ['nave'], rationale: 'the pen said so' }
+  const attest = finalizeEvent({ kind: 24140, created_at: 1700000001, tags: [], content: JSON.stringify(core) }, pen.sk)
+
+  await seed(relay, courier, director, { scopeName: 'draft:post/a1', payload: { text: 'courier words (must never render)', pen: attest } })
+  await seed(relay, courier, director, { scopeName: 'draft:post/a2', payload: { text: 'no pen at all' } })
+  const wrongKey = finalizeEvent({ kind: 24140, created_at: 1700000002, tags: [], content: JSON.stringify(core) }, stranger.sk)
+  await seed(relay, courier, director, { scopeName: 'draft:post/a3', payload: { text: 'x', pen: wrongKey } })
+  const forged = { ...attest, content: JSON.stringify({ text: 'attacker words' }) }   // sig reuse under swapped bytes
+  await seed(relay, courier, director, { scopeName: 'draft:post/a4', payload: { text: 'x', pen: forged } })
+  await seed(relay, pen, director, { scopeName: 'draft:post/a5', payload: { text: 'direct from the pen' } })
+
+  const drafts = await loadDrafts(relay, localSigner(director.sk), cfg)
+  const by = (n) => drafts.find(d => d.grant.scopeName === `draft:post/${n}`)
+
+  assert.equal(by('a1').status, 'ready', 'courier + valid pen → ready')
+  assert.equal(by('a1').draft.text, 'penned words ride', 'the ATTESTED bytes render, never the courier\'s')
+  assert.deepEqual(by('a1').penned, { by: pen.pub, direct: false }, 'penned by the pen, via the courier')
+  assert.equal(by('a2').status, 'unpenned', 'courier without a pen → inert')
+  assert.equal(by('a3').status, 'unpenned', 'signed, but not by one of YOUR pens → inert')
+  assert.equal(by('a4').status, 'unpenned', 'signature reuse under swapped content → inert (recomputed hash)')
+  assert.equal(by('a5').status, 'ready', 'the pen-direct lane is untouched')
+  assert.deepEqual(by('a5').penned, { by: pen.pub, direct: true }, 'the seal-verified author IS the pen')
+})

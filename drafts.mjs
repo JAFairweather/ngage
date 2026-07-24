@@ -27,7 +27,7 @@
 // crypto (raw scope key as the NIP-44 conversation key) — vendored nipxx
 // primitives, no signer needed there.
 
-import { verifyEvent } from 'nostr-tools'
+import { verifyEvent, getEventHash } from 'nostr-tools'
 import { KIND_DATA_SET, KIND_GRANT, fetchScope, latestGrants } from './lib/nipxx.mjs'
 
 const unb64 = (str) => Uint8Array.from(atob(str), c => c.charCodeAt(0))
@@ -123,19 +123,57 @@ export function readDraftPayload(data) {
 }
 
 /**
- * The whole desk: unwrap → trust gates → newest generation per scope →
- * dereference each 30440 and decrypt with the raw scope key.
- * Returns [{ grant, status: 'ready'|'withdrawn'|'malformed', draft? }] —
- * 'withdrawn' is a rotated/superseded/vanished scope (the agent took the
- * draft back); 'malformed' is a payload that decrypts but cannot post.
+ * The pen rule, desk half (#11; nact#44). A PEN proves itself — the grant's
+ * seal-verified author IS the pen. A COORDINATOR is a courier: its payload
+ * must carry `pen`, the draft JSON signed by an allowlisted pen, and the desk
+ * renders FROM those attested bytes — WYSIWYS from the pen, not the courier.
+ *
+ * Returns { penned: { by, direct } , core } for a good draft, or
+ * { unpenned: <reason> }. NOTE the P4 lesson (nact lib/channel-binding):
+ * this nostr-tools verifyEvent checks the sig over the STORED id without
+ * recomputing the hash — recompute and match, or a lone pen signature could
+ * be reused under swapped content.
  */
-export async function loadDrafts(relay, signer, allowlist) {
+export function pennedDraft(data, author, pens, deliverers) {
+  if (!deliverers.includes(author)) {
+    return { penned: { by: author, direct: true }, core: data }   // the author IS the pen
+  }
+  const pen = data?.pen
+  if (!pen || typeof pen !== 'object' || typeof pen.sig !== 'string') {
+    return { unpenned: 'the courier delivered words no pen signed' }
+  }
+  if (getEventHash(pen) !== pen.id) return { unpenned: 'pen attestation id does not match its content — signature reuse, refused' }
+  if (!verifyEvent(pen)) return { unpenned: 'pen attestation signature does not verify' }
+  if (!pens.includes(pen.pubkey)) return { unpenned: 'signed, but not by one of YOUR pens' }
+  let core
+  try { core = JSON.parse(pen.content) } catch { return { unpenned: 'pen attestation content is not a draft' } }
+  return { penned: { by: pen.pubkey, direct: false }, core }
+}
+
+/**
+ * The whole desk: unwrap → trust gates → newest generation per scope →
+ * dereference each 30440 and decrypt with the raw scope key → the pen rule.
+ * Returns [{ grant, status: 'ready'|'withdrawn'|'malformed'|'unpenned',
+ * draft?, penned?, why? }] — 'withdrawn' is a rotated/superseded/vanished
+ * scope (the agent took the draft back); 'malformed' is a payload that
+ * decrypts but cannot post; 'unpenned' is a courier delivery whose words no
+ * allowlisted pen signed — visible, accusatory, never signable.
+ *
+ * `cfg` is { agents, deliverers } (the two lists of #9); a plain array is
+ * still accepted as { agents: list, deliverers: [] } for the tests' sake.
+ */
+export async function loadDrafts(relay, signer, cfg) {
+  const pens = Array.isArray(cfg) ? cfg : (cfg?.agents || [])
+  const deliverers = Array.isArray(cfg) ? [] : (cfg?.deliverers || [])
+  const allowlist = [...new Set([...pens, ...deliverers])]
   const grants = latestGrants(trustedDrafts(await receiveGrantsWithSigner(relay, signer), allowlist))
   return Promise.all(grants.map(async (grant) => {
     const scope = await fetchScope(relay, grant)
     if (scope.status !== 'ok') return { grant, status: 'withdrawn' }
-    const payload = readDraftPayload(scope.data)
+    const verdict = pennedDraft(scope.data, grant.author, pens, deliverers)
+    if (verdict.unpenned) return { grant, status: 'unpenned', why: verdict.unpenned }
+    const payload = readDraftPayload(verdict.core)
     if (!payload.ok) return { grant, status: 'malformed' }
-    return { grant, status: 'ready', draft: payload.draft }
+    return { grant, status: 'ready', draft: payload.draft, penned: verdict.penned }
   }))
 }
