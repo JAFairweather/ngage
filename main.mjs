@@ -101,7 +101,7 @@ export async function load() {
     // Desk admission = pens ∪ coordinators (#9). Steering never uses this
     // union — it seals to config.agents alone (settings.mjs).
     const admitted = admissionList(config)
-    state.drafts = await loadDrafts(relay, signer, admitted)
+    state.drafts = await loadDrafts(relay, signer, config)   // {agents, deliverers} — the pen rule needs both lists (#11)
 
     // kind-0 profiles for admitted senders — presentation only
     state.profiles = new Map()

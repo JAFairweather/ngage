@@ -124,6 +124,21 @@
   .badge.malformed { border-color: var(--danger); color: var(--danger); }
   .badge.posted { border-color: var(--ok); color: var(--ok); }
   .badge.passed { border-color: var(--faint); color: var(--dim); }
+  .badge.unpenned { border-color: var(--danger); color: var(--danger); }
+
+  /* the pen frame (#11): the verified drafting identity wraps the card */
+  .draft.penned { border-color: color-mix(in srgb, var(--gold) 55%, var(--faint)); }
+  .penhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin: -6px 0 14px; padding-bottom: 12px; border-bottom: 1px dashed color-mix(in srgb, var(--gold) 35%, var(--faint)); }
+  .penava { width: 30px; height: 30px; border-radius: 50%; object-fit: cover;
+    border: 1.5px solid var(--gold); flex: none; }
+  .penava-fallback { display: inline-flex; align-items: center; justify-content: center;
+    background: var(--ink2); color: var(--gold); font-size: 15px; }
+  .penname { font-size: 13px; color: var(--fg); }
+  .penname .penpk { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+  .penproof { margin-left: auto; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em;
+    color: var(--ok); border: 1px solid color-mix(in srgb, var(--ok) 55%, transparent);
+    border-radius: 999px; padding: 3px 10px; white-space: nowrap; }
 
   /* the post as a nostr client will show it */
   .post { background: var(--ink2); border: 1px solid var(--faint); border-radius: 8px; padding: 16px 18px; }
