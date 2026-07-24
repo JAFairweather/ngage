@@ -12,7 +12,7 @@ import { generateSecretKey, nip19 } from 'nostr-tools'
 import { LiveRelay } from './lib/liverelay.mjs'
 import { localSigner, nip07Signer, nip46Signer, serializeSession, parseSession, signerFromSession } from './lib/nave-connect.mjs'
 import { renderTitlebar, updateTitlebar } from './lib/nave-titlebar.mjs'
-import { loadConfig } from './config.mjs'
+import { loadConfig, admissionList } from './config.mjs'
 import { loadDrafts } from './drafts.mjs'
 import { loadStore, recordFor } from './store.mjs'
 import { renderDrafts } from './inbox.mjs'
@@ -98,12 +98,15 @@ export async function load() {
   $('status').textContent = 'reading your sealed drafts from the relays…'
   try {
     state.store = loadStore()
-    state.drafts = await loadDrafts(relay, signer, config.agents)
+    // Desk admission = pens ∪ coordinators (#9). Steering never uses this
+    // union — it seals to config.agents alone (settings.mjs).
+    const admitted = admissionList(config)
+    state.drafts = await loadDrafts(relay, signer, admitted)
 
-    // kind-0 profiles for allowlisted agents — presentation only
+    // kind-0 profiles for admitted senders — presentation only
     state.profiles = new Map()
-    if (config.agents.length) {
-      for (const ev of await relay.query({ kinds: [0], authors: config.agents, limit: config.agents.length * 3 })) {
+    if (admitted.length) {
+      for (const ev of await relay.query({ kinds: [0], authors: admitted, limit: admitted.length * 3 })) {
         if (!state.profiles.has(ev.pubkey)) {
           try { state.profiles.set(ev.pubkey, JSON.parse(ev.content)) } catch { /* skip */ }
         }
@@ -112,10 +115,11 @@ export async function load() {
 
     const pending = state.drafts.filter(d =>
       d.status === 'ready' && !recordFor(state.store, d.grant)).length
-    $('status').textContent = config.agents.length
-      ? `${config.agents.length} trusted agent${config.agents.length === 1 ? '' : 's'} · ` +
+    $('status').textContent = admitted.length
+      ? `${config.agents.length} pen${config.agents.length === 1 ? '' : 's'}` +
+        `${config.deliverers.length ? ` + ${config.deliverers.length} coordinator${config.deliverers.length === 1 ? '' : 's'}` : ''} · ` +
         `${pending} draft${pending === 1 ? '' : 's'} awaiting your hand. ` +
-        `Only seal-verified, first-hand grants from your allowlist are shown.`
+        `Only seal-verified, first-hand grants from your lists are shown.`
       : 'No trusted agents configured — the desk shows nothing until you allowlist your agent in Settings.'
     rerender()
   } catch (err) { $('status').textContent = `relay error: ${err.message}` }
