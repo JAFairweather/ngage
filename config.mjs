@@ -9,11 +9,20 @@
 export const DEFAULT_RELAYS = ['wss://relay.damus.io', 'wss://nos.lol', 'wss://relay.primal.net']
 export const CONFIG_KEY = 'ngage-config'
 
-export const defaultConfig = () => ({ relays: [...DEFAULT_RELAYS], agents: [] })
+// Two trust lists, two roles (#9):
+//   agents     — the PENS: drafting hands. Their drafts are admitted AND they
+//                receive the Director's steering grants.
+//   deliverers — the COORDINATORS: delivery runtimes (e.g. the Nactor raising
+//                drafts for keyless identities). Their drafts are admitted;
+//                they NEVER receive steering — by construction, not curation.
+export const defaultConfig = () => ({ relays: [...DEFAULT_RELAYS], agents: [], deliverers: [] })
 
 const validRelay = (u) => { try { return /^wss?:$/.test(new URL(u).protocol) } catch { return false } }
 const strip = (u) => u.trim().replace(/\/+$/, '')
 const validPub = (s) => typeof s === 'string' && /^[0-9a-f]{64}$/.test(s)
+
+const pubList = (v) => [...new Set((Array.isArray(v) ? v : [])
+  .filter(a => typeof a === 'string').map(a => a.trim().toLowerCase()).filter(validPub))]
 
 /** Coerce anything into a usable config. Broken relay lists fall back to the
  *  defaults (a broken config must never brick the desk); a broken agent list
@@ -23,10 +32,17 @@ export function sanitizeConfig(raw) {
   const relays = [...new Set((Array.isArray(raw?.relays) ? raw.relays : [])
     .filter(r => typeof r === 'string').map(strip).filter(validRelay))]
   if (relays.length) cfg.relays = relays
-  cfg.agents = [...new Set((Array.isArray(raw?.agents) ? raw.agents : [])
-    .filter(a => typeof a === 'string').map(a => a.trim().toLowerCase()).filter(validPub))]
+  cfg.agents = pubList(raw?.agents)
+  // A pubkey can hold ONE role. If a stale config lists it in both, the pen
+  // role wins visibly below — but steering exposure must never be silent, so
+  // dedupe here: a deliverer that is already a pen is dropped from deliverers.
+  cfg.deliverers = pubList(raw?.deliverers).filter(d => !cfg.agents.includes(d))
   return cfg
 }
+
+/** Desk admission = pens ∪ coordinators. Steering NEVER uses this — it seals
+ *  to cfg.agents alone (settings.mjs). */
+export const admissionList = (cfg) => [...new Set([...(cfg?.agents || []), ...(cfg?.deliverers || [])])]
 
 export function loadConfig(storage = globalThis.localStorage) {
   try { return sanitizeConfig(JSON.parse(storage?.getItem(CONFIG_KEY))) }

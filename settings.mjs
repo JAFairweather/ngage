@@ -20,10 +20,11 @@ export function renderSettings() {
     <div id="steering-panel"></div>
 
     <div class="panel">
-      <span class="kicker">Trusted agents — the allowlist</span>
-      <p class="note">Drafts appear on the desk only when the grant's
-        <em>seal-verified author</em> is listed here. Re-wrapped or forwarded
-        grants are rejected outright; unknown namespaces are invisible.
+      <span class="kicker">Trusted agents — the pens</span>
+      <p class="note">Your drafting hands. Drafts appear on the desk only when the
+        grant's <em>seal-verified author</em> is listed here or under Coordinators —
+        re-wrapped or forwarded grants are rejected outright; unknown namespaces are
+        invisible. Pens are also <b>the only recipients of your steering</b>.
         An empty list means an empty desk — that is the safe direction.</p>
       ${cfg.agents.length ? cfg.agents.map((a, i) => `
         <div class="lrow">
@@ -36,6 +37,27 @@ export function renderSettings() {
         <button class="primary" id="agent-add">Trust</button>
       </div>
       <div class="jsonerr" id="agent-err"></div>
+    </div>
+
+    <div class="panel">
+      <span class="kicker">Coordinators — delivery only, never steered</span>
+      <p class="note">Delivery runtimes that may put drafts on your desk on behalf
+        of identities whose keys they don't hold — the Nactor raising a
+        director-path draft, for example. Same admission gates as a pen, but a
+        coordinator <b>never receives your steering</b>: publishing steering seals
+        it to the pens above and to no one else, by construction. A pubkey can hold
+        one role — listing a pen here has no effect.</p>
+      ${cfg.deliverers.length ? cfg.deliverers.map((a, i) => `
+        <div class="lrow">
+          <span class="pname">${esc(agentName(a))}</span>
+          <span class="grow">${esc(nip19.npubEncode(a))}</span>
+          <button class="icon" data-del-deliverer="${i}" title="remove coordinator">✕</button>
+        </div>`).join('') : `<div class="lrow" style="color:var(--dim)">no coordinators — box-raised drafts are not admitted</div>`}
+      <div class="row" style="margin-top:14px">
+        <input id="deliverer-npub" placeholder="npub1… of a delivery runtime (e.g. the Nactor)" autocomplete="off" spellcheck="false">
+        <button class="primary" id="deliverer-add">Add coordinator</button>
+      </div>
+      <div class="jsonerr" id="deliverer-err"></div>
     </div>
 
     <div class="panel">
@@ -84,6 +106,22 @@ export function renderSettings() {
     const pk = state.config.agents[Number(b.dataset.delAgent)]
     if (!confirm(`Remove ${short(pk)} from the allowlist?\n\nIts pending drafts disappear from the desk immediately.`)) return
     apply(c => { c.agents = c.agents.filter((_, i) => i !== Number(b.dataset.delAgent)) })
+  }
+
+  $('deliverer-add').onclick = () => {
+    $('deliverer-err').textContent = ''
+    try {
+      const pk = parsePub($('deliverer-npub').value)
+      if (state.config.agents.includes(pk)) { $('deliverer-err').textContent = 'already a pen — a pubkey holds one role'; return }
+      if (state.config.deliverers.includes(pk)) { $('deliverer-err').textContent = 'already a coordinator'; return }
+      apply(c => { c.deliverers = [...c.deliverers, pk] })
+    } catch { $('deliverer-err').textContent = 'expected npub1… or 64-char hex' }
+  }
+  $('deliverer-npub').onkeydown = (e) => { if (e.key === 'Enter') $('deliverer-add').onclick() }
+  for (const b of el.querySelectorAll('[data-del-deliverer]')) b.onclick = () => {
+    const pk = state.config.deliverers[Number(b.dataset.delDeliverer)]
+    if (!confirm(`Remove coordinator ${short(pk)}?\n\nBox-raised drafts it delivers disappear from the desk immediately.`)) return
+    apply(c => { c.deliverers = c.deliverers.filter((_, i) => i !== Number(b.dataset.delDeliverer)) })
   }
 
   $('relay-add').onclick = () => {
@@ -148,8 +186,9 @@ export function renderSteering() {
       <span class="kicker">Steering — how your scribe drafts for you</span>
       <p class="note">Your drafting instructions, delegated the same way drafts come
         back to you: a <em>steer:draft</em> grant, encrypted end to end and sealed to
-        every trusted agent below. Edit freely and republish — each save rotates the
-        grant, so the newest steering supersedes the last.
+        <b>your pens only</b> — never to a coordinator (#9). Edit freely and
+        republish — each save rotates the grant, so the newest steering supersedes
+        the last <em>and cuts off anyone no longer listed</em>.
         ${gen ? `<span class="steer-live">live · generation ${gen}</span>` : `<span class="steer-live dim">not yet published</span>`}</p>
 
       <label class="steer-label">Voice &amp; register</label>
@@ -170,8 +209,8 @@ export function renderSteering() {
       <div class="row" style="margin-top:16px; align-items:center">
         <button class="primary" id="steer-publish" ${agents.length ? '' : 'disabled'}>Publish steering</button>
         <span class="steer-msg" id="steer-msg">${agents.length
-          ? `sealed to ${agents.length} trusted agent${agents.length === 1 ? '' : 's'} on save`
-          : 'add a trusted agent below first — steering needs a recipient'}</span>
+          ? `sealed to ${agents.length} pen${agents.length === 1 ? '' : 's'} on save — coordinators never receive steering`
+          : 'add a pen below first — steering needs a recipient'}</span>
       </div>
       <div class="jsonerr" id="steer-err"></div>
     </div>`
