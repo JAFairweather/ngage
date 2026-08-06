@@ -1,0 +1,71 @@
+name: CI
+
+# Run the suite on every PR and on pushes to main.
+#
+# THE LAST REPO IN THE ESTATE WITH NO CI. nvoy reported `checks=none`, nact had no workflows at all, and
+# both were fixed on 2026-08-06; this closes the set.
+#
+# Ngage is the surface where a silent failure costs the most. It is the only place the Director's own key
+# signs, so a defect here does not produce a wrong screen — it produces a note published in his name, or a
+# note he believed was published and was not. `test/consume-mirror.test.mjs` exists precisely because that
+# distinction was being lost.
+#
+# THE CROSS-REPO IMPORT IS THE POINT, not an inconvenience. `test/nvoy-index.test.mjs` and
+# `test/consume-mirror.test.mjs` import Nvoy's REAL `deriveDelegations` / `receivedActions`, so any drift
+# between the two apps' Grant Index shape fails here rather than in production. Skipping them because they
+# need a sibling checkout would leave the one contract nobody else tests unverified while the run stayed
+# green — so CI checks nvoy out and rewrites the absolute paths those suites use.
+#
+# Deliberately no suite count here: package.json's `test` script is the only place that knows it, and a
+# restated count goes stale silently.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: npm test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install from lockfile
+        run: npm ci --no-audit --no-fund
+
+      - name: Check out nvoy, for the shared Grant Index shape
+        # Pinned to main deliberately: this asserts Ngage works against Nvoy AS DEPLOYED, so a red run is
+        # real information — either Ngage broke or Nvoy changed the index shape under it.
+        uses: actions/checkout@v4
+        with:
+          repository: JAFairweather/nvoy
+          ref: main
+          path: .nvoy-for-ci
+
+      - name: Point the cross-repo imports at that checkout
+        # Those two suites hardcode a maintainer's local path, which is fine on a Mac and meaningless on a
+        # runner. Rewritten in place rather than made conditional: a suite that quietly skips is worse than
+        # one that fails, because the contract then looks tested.
+        run: |
+          for f in test/nvoy-index.test.mjs test/consume-mirror.test.mjs; do
+            [ -f "$f" ] || continue
+            sed -i "s|/Users/fairwja/Projects/nave-spine/nvoy|$GITHUB_WORKSPACE/.nvoy-for-ci|g; s|/Users/fairwja/Projects/nvoy|$GITHUB_WORKSPACE/.nvoy-for-ci|g" "$f"
+            grep -q '.nvoy-for-ci' "$f" || { echo "::error::$f still points at a local path — the rewrite missed it"; exit 1; }
+          done
+
+      - name: Test
+        # Side-effect-free: every suite drives pure modules or asserts over source. No relay is contacted
+        # and no key is required.
+        run: npm test

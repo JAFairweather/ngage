@@ -27,13 +27,17 @@
     --rule: color-mix(in srgb, var(--gold) 22%, transparent);
     --ok: #8fae6a; --warn: #d9a648; --danger: #c0705a;
     --alby: #ffdf6f; --alby-bright: #ffe98c; --alby-ink: #1c1400;
+    /* Chrome is SANS; the note body stays serif under a named exception — see `.post .body`. */
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
     --mono: "Courier New", ui-monospace, monospace;
     --serif: Georgia, "Iowan Old Style", "Times New Roman", serif;
   }
   * { box-sizing: border-box; }
   body {
     margin: 0; background: var(--ink); color: var(--cream);
-    font-family: var(--serif); line-height: 1.65; font-size: 16.5px;
+    /* Chrome reads as an interface, not as prose. The one thing that keeps the serif is the note
+       body, because that IS the artifact being signed (see `.post .body`). */
+    font-family: var(--sans); line-height: 1.6; font-size: 15.5px;
     -webkit-font-smoothing: antialiased;
     background-image:
       radial-gradient(1200px 700px at 50% -8%, color-mix(in srgb, var(--gold) 8%, transparent), transparent 70%),
@@ -76,7 +80,7 @@
   .alby-bar {
     width: 100%; display: flex; align-items: center; justify-content: center; gap: 10px;
     padding: 13px 18px; font-size: 14px; font-weight: 700; letter-spacing: 0.02em; text-transform: none;
-    background: var(--alby); border-color: var(--alby); color: var(--alby-ink); font-family: var(--serif);
+    background: var(--alby); border-color: var(--alby); color: var(--alby-ink); font-family: var(--sans);
   }
   .alby-bar:hover { background: var(--alby-bright); border-color: var(--alby-bright); color: var(--alby-ink); }
   .alby-bar .alby-mark { width: 24px; height: 24px; flex: none; }
@@ -87,7 +91,7 @@
     border: 1px solid var(--faint); border-radius: 4px; padding: 32px;
     box-shadow: 0 30px 70px -46px #000; }
   #login .kicker { display: block; margin-bottom: 8px; }
-  #login h2 { margin: 0 0 8px; font-family: var(--serif); font-weight: 400;
+  #login h2 { margin: 0 0 8px; font-family: var(--sans); font-weight: 500;
     font-style: italic; font-size: 25px; letter-spacing: 0.01em; }
   #login p { color: var(--soft); margin: 0 0 22px; font-size: 15px; }
   #login .row { display: flex; gap: 10px; margin: 18px 0 0; }
@@ -148,9 +152,16 @@
     background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--gold) 22%, transparent), transparent 70%);
     color: var(--gold); display: grid; place-items: center; }
   .post .ava svg { width: 20px; height: 20px; }
-  .post .who .name { font-weight: 700; font-size: 15px; font-family: var(--serif); }
+  .post .who .name { font-weight: 600; font-size: 15px; font-family: var(--sans); }
   .post .who .sub { font-family: var(--mono); font-size: 11px; color: var(--dim); }
-  .post .body { font-size: 16px; line-height: 1.55; white-space: pre-wrap; word-wrap: break-word; }
+  /* ── THE SIGNED ARTIFACT (a named DESIGN.md type exception) ──────────────────
+     This block is the only serif left, and it is deliberate: these bytes ARE the note the Director is
+     about to sign. Rendering them in the same face as the buttons around them would make the artifact
+     look like chrome, and the whole ceremony depends on being able to tell one from the other — the
+     same instinct that makes nact's sign.html the best surface in the estate. Every OTHER serif in
+     this file became sans; if a future change makes this one sans too, the ceremony loses its
+     centrepiece and nothing will complain. */
+  .post .body { font-family: var(--serif); font-size: 17px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; }
   .post .body .htag { color: var(--gold-bright); }
   .post img.media { display: block; max-width: 100%; border-radius: 6px; margin-top: 12px;
     border: 1px solid var(--faint); }
@@ -192,7 +203,7 @@
   .lrow { display: flex; gap: 12px; align-items: center; padding: 8px 2px;
     border-bottom: 1px dashed var(--faint); font-family: var(--mono); font-size: 12px; }
   .lrow .grow { flex: 1; word-break: break-all; }
-  .lrow .pname { color: var(--gold-bright); font-family: var(--serif); font-size: 14px; }
+  .lrow .pname { color: var(--gold-bright); font-family: var(--sans); font-size: 14px; }
   .jsonerr { color: var(--warn); font-size: 12px; min-height: 1.1em; margin: 4px 0; font-family: var(--mono); }
 
   /* steering panel */
@@ -270,10 +281,17 @@
   </section>
   <nav id="tabs">
     <button class="tab active" data-tab="drafts">Drafts</button>
+    <!-- Pens is a ROSTER, not a setting. "Who may write in my name" is the most consequential
+         question this desk answers, and it was hidden inside a settings page. -->
+    <button class="tab" data-tab="pens">Pens</button>
     <button class="tab" data-tab="settings">Settings</button>
   </nav>
   <div id="status"></div>
+  <!-- A deep link that names a draft this desk cannot show. Reported rather than swallowed: the
+       reader clicked something specific, and an ordinary-looking desk is not an answer. -->
+  <div id="deep-miss" class="deep-miss" style="display:none"></div>
   <section id="drafts" style="display:none"></section>
+  <section id="pens" style="display:none"></section>
   <section id="settings" style="display:none"></section>
 </main>
 <script type="module" src="main.mjs"></script>
@@ -300,6 +318,11 @@
   .nf-meta a:hover { color:#e2c079; }
   .nf-npub { font-size:11px; color:#6f6553; word-break:break-all; }
   .nf-whisper { font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-style:italic; font-size:13px; color:#6f6553; }
+/* Deep-link landing (#draft/<scopeId>): ring the card a cross-plane link named, so the reader can
+   see WHICH one they arrived at. Same idea as the Ledger's focus ring. */
+.draft.deep-focus{outline:2px solid var(--accent);outline-offset:3px;animation:deepring 2.6s ease-out}
+@keyframes deepring{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent)}60%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.deep-miss{margin:0 0 14px;padding:10px 13px;border:1px dashed var(--line);border-radius:10px;font-size:13px;color:var(--dim)}
 </style>
 <footer class="nave-footer">
   <div class="nf-wrap">
