@@ -11,7 +11,7 @@
 import { generateSecretKey, nip19 } from 'nostr-tools'
 import { LiveRelay } from './lib/liverelay.mjs'
 import { localSigner, nip07Signer, nip46Signer, serializeSession, parseSession, signerFromSession } from './lib/nave-connect.mjs'
-import { renderTitlebar, updateTitlebar } from './lib/nave-titlebar.mjs'
+import { renderTitlebar, updateTitlebar, NAVE_PLANES } from './lib/nave-titlebar.mjs'
 import { loadConfig, admissionList } from './config.mjs'
 import { loadDrafts } from './drafts.mjs'
 import { loadStore, recordFor } from './store.mjs'
@@ -245,7 +245,11 @@ const NGAGE_SEAL = `<svg viewBox="0 0 32 32" aria-hidden="true">
     <circle cx="12" cy="11" r="1.4" fill="#c39a56" stroke="none"/>
   </g>
 </svg>`
-renderTitlebar('#titlebar', { appName: 'Ngage', tagline: 'the posting desk', sealSvg: NGAGE_SEAL })
+// activePlane is NULL: Ngage is an app, not a third plane. AD-12 declines "application plane" — these are
+// one grant plane seen at two scopes, and a slice that highlighted itself as a plane would re-introduce
+// the vocabulary the ruling removed.
+renderTitlebar('#titlebar', { appName: 'Ngage', tagline: 'the posting desk', sealSvg: NGAGE_SEAL,
+  planes: NAVE_PLANES, activePlane: null })
 
 // --- stale-tab guard --------------------------------------------------------
 // The real cache class isn't the headers (every module is served no-cache) —
