@@ -64,6 +64,47 @@ export function showTab(t) {
 for (const b of document.querySelectorAll('.tab')) b.onclick = () => showTab(b.dataset.tab)
 export const rerender = () => TABS[current]()
 
+/**
+ * `#draft/<scopeId>` — the deep link Nact emits, and had nowhere to land.
+ *
+ * Nact's Queue shows the director-path drafts it raised and cannot sign, with `Open on your Ngage
+ * desk ↗` pointing here. Until this existed the link resolved to the desk root: the reader arrived
+ * somewhere plausible and had to find the card themselves, which is the failure mode a deep link is
+ * for. Worse, with several drafts open it is not obvious they landed on the wrong one.
+ *
+ * A scope id is opaque, so it is compared as an exact string and never parsed. An unknown id is
+ * REPORTED, not silently ignored: the likeliest cause is that the draft was already posted or
+ * withdrawn, and "your link is stale" is a different message from showing an unremarkable desk.
+ */
+export const draftFromHash = () => {
+  const seg = (location.hash || '').replace(/^#/, '').split('/')
+  return seg[0] === 'draft' && seg[1] ? decodeURIComponent(seg[1]) : null
+}
+
+/** Focus one draft card: land on the desk, scroll it in, ring it. Reports a miss rather than hiding it. */
+export function focusDraft(scopeId, { found } = {}) {
+  showTab('drafts')
+  // Restore the deep link showTab() just overwrote, so a reload lands in the same place and the URL
+  // still describes what is on screen.
+  try { location.hash = `draft/${encodeURIComponent(scopeId)}` } catch {}
+  const el = document.querySelector(`[data-scope="${CSS.escape(scopeId)}"]`)
+  if (el) {
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    el.classList.add('deep-focus')
+    setTimeout(() => el.classList.remove('deep-focus'), 2600)
+    return true
+  }
+  if (found === false || !el) {
+    const note = $('deep-miss')
+    if (note) {
+      note.textContent = `That link points at a draft this desk cannot show (${scopeId.slice(0, 12)}…). `
+        + 'It was most likely already posted or withdrawn — the desk below is everything currently offered.'
+      note.style.display = ''
+    }
+  }
+  return false
+}
+
 /** Swap the relay set live (Settings). */
 export function setRelays(urls) {
   try { state.relay?.close() } catch { /* best effort */ }
@@ -87,7 +128,10 @@ export async function login(signer, remember) {
     npub: nip19.npubEncode(state.me), kind: signer.kind,
     onRefresh: () => load(), onLogout: logout,
   })
-  showTab(Object.keys(TABS).includes(location.hash.slice(1)) ? location.hash.slice(1) : 'drafts')
+  // A `#draft/<id>` hash is a DESK link, not a tab name, so it must resolve to the desk rather than
+  // falling through to the default and discarding the id. renderDrafts() then lands it.
+  const hash = location.hash.slice(1)
+  showTab(draftFromHash() ? 'drafts' : (Object.keys(TABS).includes(hash) ? hash : 'drafts'))
   load()
 }
 

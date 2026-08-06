@@ -15,7 +15,7 @@
 import { nip19 } from 'nostr-tools'
 import { buildDraftEvent, composeContent, extractHashtags } from './assemble.mjs'
 import { draftKey, markPassed, markPosted, recordFor } from './store.mjs'
-import { $, esc, short, fmtWhen, state, agentName, rerender, showTab } from './main.mjs'
+import { $, esc, short, fmtWhen, state, agentName, rerender, showTab, draftFromHash, focusDraft } from './main.mjs'
 
 const AVA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
   stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -77,7 +77,9 @@ const penFrame = (penned) => {
 function pendingCard(d, i) {
   const { grant: g, draft, penned } = d
   const extraTags = (draft.hashtags ?? []).filter(t => !extractHashtags(composeContent(draft.text)).includes(t))
-  return `<div class="draft${penned ? ' penned' : ''}" id="d-${i}">
+  // data-scope is the deep-link anchor: Nact's Queue links here by scope id (`#draft/<scopeId>`),
+  // so the card the link names has to be findable in the DOM.
+  return `<div class="draft${penned ? ' penned' : ''}" id="d-${i}" data-scope="${esc(g.scopeId)}">
     ${penFrame(penned)}
     <div class="head"><span class="scope">${esc(g.scopeName)}</span>
       <span class="badge ready">awaiting your hand</span></div>
@@ -94,7 +96,9 @@ function pendingCard(d, i) {
   </div>`
 }
 
-const inertCard = (d, i, badge, note) => `<div class="draft inert" id="d-${i}">
+// Anchored too: a link to a withdrawn or unpenned draft must still LAND on it. Landing on the
+// explanation is the whole point — otherwise the reader sees a desk with no sign of what they clicked.
+const inertCard = (d, i, badge, note) => `<div class="draft inert" id="d-${i}" data-scope="${esc(d.grant.scopeId)}">
     <div class="head"><span class="scope">${esc(d.grant.scopeName)}</span>
       <span class="badge ${badge}">${badge === 'withdrawn' ? 'withdrawn by agent' : badge === 'unpenned' ? '✒ unpenned — refused' : 'malformed — inert'}</span></div>
     <p class="why">${note}</p>
@@ -148,6 +152,12 @@ export function renderDrafts() {
     state.store = markPassed(d.grant)
     rerender()
   }
+
+  // Land a `#draft/<scopeId>` deep link, now that the cards exist to land on. Done HERE rather than at
+  // boot because the cards are built by this function — focusing before they render would always miss,
+  // and a miss is reported to the reader rather than swallowed.
+  const want = draftFromHash()
+  if (want) focusDraft(want, { found: !!el.querySelector(`[data-scope="${CSS.escape(want)}"]`) })
 }
 
 /** The ceremony: pure assembly → the Director's signer → the relay set. */

@@ -273,6 +273,9 @@
     <button class="tab" data-tab="settings">Settings</button>
   </nav>
   <div id="status"></div>
+  <!-- A deep link that names a draft this desk cannot show. Reported rather than swallowed: the
+       reader clicked something specific, and an ordinary-looking desk is not an answer. -->
+  <div id="deep-miss" class="deep-miss" style="display:none"></div>
   <section id="drafts" style="display:none"></section>
   <section id="settings" style="display:none"></section>
 </main>
@@ -300,6 +303,11 @@
   .nf-meta a:hover { color:#e2c079; }
   .nf-npub { font-size:11px; color:#6f6553; word-break:break-all; }
   .nf-whisper { font-family:-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-style:italic; font-size:13px; color:#6f6553; }
+/* Deep-link landing (#draft/<scopeId>): ring the card a cross-plane link named, so the reader can
+   see WHICH one they arrived at. Same idea as the Ledger's focus ring. */
+.draft.deep-focus{outline:2px solid var(--accent);outline-offset:3px;animation:deepring 2.6s ease-out}
+@keyframes deepring{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent)}60%{box-shadow:0 0 0 8px transparent}100%{box-shadow:0 0 0 0 transparent}}
+.deep-miss{margin:0 0 14px;padding:10px 13px;border:1px dashed var(--line);border-radius:10px;font-size:13px;color:var(--dim)}
 </style>
 <footer class="nave-footer">
   <div class="nf-wrap">
