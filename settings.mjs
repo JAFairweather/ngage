@@ -19,45 +19,8 @@ export function renderSettings() {
   el.innerHTML = `
     <div id="steering-panel"></div>
 
-    <div class="panel">
-      <span class="kicker">Trusted agents — the pens</span>
-      <p class="note">Your drafting hands. Drafts appear on the desk only when the
-        grant's <em>seal-verified author</em> is listed here or under Coordinators —
-        re-wrapped or forwarded grants are rejected outright; unknown namespaces are
-        invisible. Pens are also <b>the only recipients of your steering</b>.
-        An empty list means an empty desk — that is the safe direction.</p>
-      ${cfg.agents.length ? cfg.agents.map((a, i) => `
-        <div class="lrow">
-          <span class="pname">${esc(agentName(a))}</span>
-          <span class="grow">${esc(nip19.npubEncode(a))}</span>
-          <button class="icon" data-del-agent="${i}" title="remove from allowlist">✕</button>
-        </div>`).join('') : `<div class="lrow" style="color:var(--dim)">no agents trusted yet</div>`}
-      <div class="row" style="margin-top:14px">
-        <input id="agent-npub" placeholder="npub1… of your drafting agent" autocomplete="off" spellcheck="false">
-        <button class="primary" id="agent-add">Trust</button>
-      </div>
-      <div class="jsonerr" id="agent-err"></div>
-    </div>
-
-    <div class="panel">
-      <span class="kicker">Coordinators — delivery only, never steered</span>
-      <p class="note">Delivery runtimes that may put drafts on your desk on behalf
-        of identities whose keys they don't hold — the Nactor raising a
-        director-path draft, for example. Same admission gates as a pen, but a
-        coordinator <b>never receives your steering</b>: publishing steering seals
-        it to the pens above and to no one else, by construction. A pubkey can hold
-        one role — listing a pen here has no effect.</p>
-      ${cfg.deliverers.length ? cfg.deliverers.map((a, i) => `
-        <div class="lrow">
-          <span class="pname">${esc(agentName(a))}</span>
-          <span class="grow">${esc(nip19.npubEncode(a))}</span>
-          <button class="icon" data-del-deliverer="${i}" title="remove coordinator">✕</button>
-        </div>`).join('') : `<div class="lrow" style="color:var(--dim)">no coordinators — box-raised drafts are not admitted</div>`}
-      <div class="row" style="margin-top:14px">
-        <input id="deliverer-npub" placeholder="npub1… of a delivery runtime (e.g. the Nactor)" autocomplete="off" spellcheck="false">
-        <button class="primary" id="deliverer-add">Add coordinator</button>
-      </div>
-      <div class="jsonerr" id="deliverer-err"></div>
+    <div class="note" style="margin:0 0 6px">The pens and coordinators moved to <b>Pens</b> — a roster
+      is not a setting.</div>
     </div>
 
     <div class="panel">
@@ -93,36 +56,7 @@ export function renderSettings() {
     load()
   }
 
-  $('agent-add').onclick = () => {
-    $('agent-err').textContent = ''
-    try {
-      const pk = parsePub($('agent-npub').value)
-      if (state.config.agents.includes(pk)) { $('agent-err').textContent = 'already on the allowlist'; return }
-      apply(c => { c.agents = [...c.agents, pk] })
-    } catch { $('agent-err').textContent = 'expected npub1… or 64-char hex' }
-  }
-  $('agent-npub').onkeydown = (e) => { if (e.key === 'Enter') $('agent-add').onclick() }
-  for (const b of el.querySelectorAll('[data-del-agent]')) b.onclick = () => {
-    const pk = state.config.agents[Number(b.dataset.delAgent)]
-    if (!confirm(`Remove ${short(pk)} from the allowlist?\n\nIts pending drafts disappear from the desk immediately.`)) return
-    apply(c => { c.agents = c.agents.filter((_, i) => i !== Number(b.dataset.delAgent)) })
-  }
-
-  $('deliverer-add').onclick = () => {
-    $('deliverer-err').textContent = ''
-    try {
-      const pk = parsePub($('deliverer-npub').value)
-      if (state.config.agents.includes(pk)) { $('deliverer-err').textContent = 'already a pen — a pubkey holds one role'; return }
-      if (state.config.deliverers.includes(pk)) { $('deliverer-err').textContent = 'already a coordinator'; return }
-      apply(c => { c.deliverers = [...c.deliverers, pk] })
-    } catch { $('deliverer-err').textContent = 'expected npub1… or 64-char hex' }
-  }
-  $('deliverer-npub').onkeydown = (e) => { if (e.key === 'Enter') $('deliverer-add').onclick() }
-  for (const b of el.querySelectorAll('[data-del-deliverer]')) b.onclick = () => {
-    const pk = state.config.deliverers[Number(b.dataset.delDeliverer)]
-    if (!confirm(`Remove coordinator ${short(pk)}?\n\nBox-raised drafts it delivers disappear from the desk immediately.`)) return
-    apply(c => { c.deliverers = c.deliverers.filter((_, i) => i !== Number(b.dataset.delDeliverer)) })
-  }
+  wireRosters(el, apply)
 
   $('relay-add').onclick = () => {
     $('relay-err').textContent = ''
@@ -271,4 +205,59 @@ export function renderSteering() {
       $('steer-err').textContent = `publish failed: ${err.message}`
     } finally { steerBusy.on = false; if ($('steer-publish')) $('steer-publish').disabled = false }
   }
+}
+
+// Pens renders its own pane, so a mutation there must re-render THAT pane, not Settings. The default
+// keeps Settings' behaviour; Pens passes its own.
+const defaultApply = (mutate) => {
+  const next = { ...state.config }
+  mutate(next)
+  state.config = saveConfig(next)
+  setRelays(state.config.relays)
+  renderSettings()
+  load()
+}
+
+/**
+ * Wire the pen + coordinator rosters. Exported so Pens renders the SAME handlers Settings had.
+ *
+ * Shared rather than copied on purpose: these four handlers are the admission gate — they decide whose
+ * words may be rendered for the Director's signature. Two copies would be two gates, and the second one
+ * to change would be the one nobody noticed.
+ *
+ * @param el      the container whose [data-del-*] buttons to bind
+ * @param apply   the config mutator, so the caller owns re-render and reload
+ */
+export function wireRosters(el, apply = defaultApply) {
+  $('agent-add').onclick = () => {
+    $('agent-err').textContent = ''
+    try {
+      const pk = parsePub($('agent-npub').value)
+      if (state.config.agents.includes(pk)) { $('agent-err').textContent = 'already on the allowlist'; return }
+      apply(c => { c.agents = [...c.agents, pk] })
+    } catch { $('agent-err').textContent = 'expected npub1… or 64-char hex' }
+  }
+  $('agent-npub').onkeydown = (e) => { if (e.key === 'Enter') $('agent-add').onclick() }
+  for (const b of el.querySelectorAll('[data-del-agent]')) b.onclick = () => {
+    const pk = state.config.agents[Number(b.dataset.delAgent)]
+    if (!confirm(`Remove ${short(pk)} from the allowlist?\n\nIts pending drafts disappear from the desk immediately.`)) return
+    apply(c => { c.agents = c.agents.filter((_, i) => i !== Number(b.dataset.delAgent)) })
+  }
+
+  $('deliverer-add').onclick = () => {
+    $('deliverer-err').textContent = ''
+    try {
+      const pk = parsePub($('deliverer-npub').value)
+      if (state.config.agents.includes(pk)) { $('deliverer-err').textContent = 'already a pen — a pubkey holds one role'; return }
+      if (state.config.deliverers.includes(pk)) { $('deliverer-err').textContent = 'already a coordinator'; return }
+      apply(c => { c.deliverers = [...c.deliverers, pk] })
+    } catch { $('deliverer-err').textContent = 'expected npub1… or 64-char hex' }
+  }
+  $('deliverer-npub').onkeydown = (e) => { if (e.key === 'Enter') $('deliverer-add').onclick() }
+  for (const b of el.querySelectorAll('[data-del-deliverer]')) b.onclick = () => {
+    const pk = state.config.deliverers[Number(b.dataset.delDeliverer)]
+    if (!confirm(`Remove coordinator ${short(pk)}?\n\nBox-raised drafts it delivers disappear from the desk immediately.`)) return
+    apply(c => { c.deliverers = c.deliverers.filter((_, i) => i !== Number(b.dataset.delDeliverer)) })
+  }
+
 }

@@ -17,6 +17,7 @@ import { loadDrafts } from './drafts.mjs'
 import { loadStore, recordFor } from './store.mjs'
 import { renderDrafts } from './inbox.mjs'
 import { renderSettings } from './settings.mjs'
+import { renderPens } from './pens.mjs'
 
 export const $ = (id) => document.getElementById(id)
 export const esc = (s) => String(s).replace(/[&<>"']/g, c =>
@@ -52,7 +53,7 @@ export function parsePub(input) {
   return data
 }
 
-const TABS = { drafts: renderDrafts, settings: renderSettings }
+const TABS = { drafts: renderDrafts, pens: renderPens, settings: renderSettings }
 let current = 'drafts'
 export function showTab(t) {
   current = t
