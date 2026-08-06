@@ -15,6 +15,7 @@
 import { nip19 } from 'nostr-tools'
 import { buildDraftEvent, composeContent, extractHashtags } from './assemble.mjs'
 import { draftKey, markPassed, markPosted, recordFor } from './store.mjs'
+import { recordConsumptionInIndex } from './nvoy-index.mjs'
 import { $, esc, short, fmtWhen, state, agentName, rerender, showTab, draftFromHash, focusDraft } from './main.mjs'
 
 const AVA = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
@@ -150,6 +151,13 @@ export function renderDrafts() {
   for (const b of el.querySelectorAll('[data-pass]')) b.onclick = () => {
     const d = state.drafts[Number(b.dataset.pass)]
     state.store = markPassed(d.grant)
+    // A decline is a consumption too: the Director SAW it and chose not to sign, which is exactly the
+    // kind of thing an audit log should carry. Fire-and-report — passing must never block on a relay,
+    // and an inert card has no message slot to report into, so a mirror failure is logged rather than
+    // rendered. Stated plainly because a silent catch is what this whole wave has been removing.
+    recordConsumptionInIndex(state.relay, state.signer,
+      { scopeId: d.grant.scopeId, scopeName: d.grant.scopeName, publisher: d.grant.publisher, outcome: 'passed' })
+      .then(m => { if (!m.mirrored) console.warn(`ngage: pass not recorded in Nvoy — ${m.why}`) })
     rerender()
   }
 
@@ -177,6 +185,17 @@ async function postInMyHand(i) {
     state.store = markPosted(d.grant, { noteId, acks: receipt.acks, of: receipt.of })
     msg.className = 'msg ok'
     msg.textContent = `${noteId} · accepted by ${receipt.acks}/${receipt.of} relays`
+    // Mirror the consumption into the Grant Index, AFTER the local record. Order matters: the local
+    // ledger is this desk's idempotence key and must not depend on a relay write. The pill reports the
+    // mirror SEPARATELY from the post, because by now the note is real — the Director signed it — so a
+    // failed mirror means the note exists and the record does not, and only one of those is fixable by
+    // retrying. Ngage's steering panel set this pattern; it is the estate's template for a cross-plane
+    // write (nave.pub#110).
+    msg.textContent += ' · recording in Nvoy…'
+    const m = await recordConsumptionInIndex(state.relay, state.signer,
+      { scopeId: d.grant.scopeId, scopeName: d.grant.scopeName, publisher: d.grant.publisher, outcome: 'posted', noteId })
+    msg.textContent = `${noteId} · accepted by ${receipt.acks}/${receipt.of} relays`
+      + (m.mirrored ? ' · recorded in Nvoy' : ` · ⚠ not recorded in Nvoy (${m.why}) — the note IS posted`)
     setTimeout(rerender, 2500)                              // let the receipt be read, then settle to history
   } catch (err) {
     msg.className = 'msg err'

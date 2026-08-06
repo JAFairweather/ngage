@@ -75,3 +75,46 @@ export async function recordSteeringInIndex(relay, signer, { scopeId, scopeName,
   const dropped = priorGrantees.filter(a => !now.has(a)).length
   return { added, dropped, total: grantees.length }
 }
+
+// --- the INBOUND direction (Wave 4) ----------------------------------------
+export const consumedEvent = ({ scope, publisher, name, outcome, noteId = null, at = nowSec() }) =>
+  ({ t: 'consumed', at, scope, publisher, name: name ?? null, outcome, noteId })
+
+/**
+ * Record that the Director acted on a draft an agent granted TO him.
+ *
+ * Until now this landed in `localStorage['ngage-consumed']` and nowhere else, so half of what this desk
+ * did was invisible in the console that is meant to be the source of truth for ALL grants — invisible by
+ * construction, which is the same class of defect as the agent that showed in Nvoy and not in Nact.
+ *
+ * WHY THIS IS NOT AN `issued` ENTRY. `index.issued` is what the Director granted. This grant came the
+ * other way. Adding it there would invert the direction of authority in the audit log to save defining a
+ * word, and a reader would reasonably conclude he had delegated something. Nvoy's `receivedActions()`
+ * reads these separately for exactly that reason.
+ *
+ * The local ledger stays: it is the desk's own idempotence key (`draftKey`), it works offline, and it
+ * must not depend on a relay write succeeding. This ADDS the mirror; it does not move the record.
+ *
+ * @param outcome 'posted' | 'passed'
+ * @returns { mirrored: true } | { mirrored: false, why }  — the caller shows the pill either way
+ */
+export async function recordConsumptionInIndex(relay, signer, { scopeId, scopeName, publisher, outcome, noteId = null }) {
+  if (outcome !== 'posted' && outcome !== 'passed') return { mirrored: false, why: `unknown outcome ${outcome}` }
+  try {
+    const index = await loadGrantIndex(relay, signer)   // fresh — merge, don't clobber
+    // Idempotent per (scope, outcome): re-posting the same draft twice is not two consumptions, and a
+    // retry after a failed relay write must not double-record.
+    const already = (index.nvoy_ledger ?? []).some(e =>
+      e?.t === 'consumed' && e.scope === scopeId && e.outcome === outcome)
+    if (already) return { mirrored: true, already: true }
+    index.nvoy_ledger = appendLedger(index, consumedEvent({
+      scope: scopeId, publisher, name: scopeName, outcome, noteId,
+    }))
+    await saveGrantIndex(relay, signer, index)
+    return { mirrored: true }
+  } catch (err) {
+    // REPORTED, never swallowed. The post already happened — the Director signed it — so failing here
+    // means the note is real and the record is not. Saying so is what the retry pill is for.
+    return { mirrored: false, why: err?.message || String(err) }
+  }
+}
